@@ -40,6 +40,7 @@ void ModelLib::loadLib(const char *p)
 {
     namespace fs = boost::filesystem;
     fs::path path(p);
+    
     if (!fs::exists(p))
     {
         std::cout << "Path doesn't exist: " << p << '\n';

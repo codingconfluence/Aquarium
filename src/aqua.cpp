@@ -23,16 +23,69 @@
 #include <iostream>
 #include <GL/glu.h>
 #include <GL/gl.h>
-#include <SDL/SDL.h>
-#include <SDL/SDL_image.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include "modellib.hpp"
 #include "aquarium.hpp"
 
 ModelLib modelLib;
 Aquarium aquarium;
-unsigned width = 800, height = 600;
+unsigned int width = 640, height = 480;
+SDL_Renderer *render = NULL;
 
-std::vector<bool> keyPressed(SDLK_LAST);
+typedef enum
+{
+    xKey_START = 512,
+    xKEY_LEFT,
+    xKEY_RIGHT,
+    xKEY_PAGEUP,
+    xKEY_PAGEDOWN,
+    xKEY_UP,
+    xKEY_DOWN,
+    xKEY_TAB,
+}xKey_e;
+
+inline static int xKey_remap( int old )
+{
+    int x = 0;
+    int max = 512;
+    
+    switch (old)
+        {
+        case SDLK_LEFT:
+            x = xKEY_LEFT;
+            break;
+        case SDLK_RIGHT:
+            x = xKEY_RIGHT;
+            break;
+        case SDLK_PAGEUP:
+            x = xKEY_PAGEUP;
+            break;
+        case SDLK_PAGEDOWN:
+            x = xKEY_PAGEDOWN;
+            break;
+        case SDLK_UP:
+            x = xKEY_UP;
+            break;
+        case SDLK_DOWN:
+            x = xKEY_DOWN;
+            break;
+        case SDLK_TAB:
+            x = xKEY_TAB;
+            break;
+        default :
+            if ( (old<max) && (old>=0) )
+                x = old;
+            else
+                x = 0;
+            break;
+        }
+    
+    return x;
+}
+
+
+std::vector<bool> keyPressed(1024, false);
 SDL_Surface *surface;
 bool gamePause, collisions = true, FPP;
 unsigned activeFish;
@@ -78,17 +131,53 @@ class Camera
 
 } camera;
 
+SDL_Window  *g_window;
+
 SDL_Surface * setVideoMode()
 {
-    SDL_Surface *surface;
+    
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    int flags = SDL_OPENGL | SDL_RESIZABLE | SDL_DOUBLEBUF;
-    if ((surface = SDL_SetVideoMode(width, height, 0, flags)) == NULL)
+    int flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+
+    
+    g_window = SDL_CreateWindow( "Aquarium", 100, 100, width, height, flags );
+    if ( !g_window ) {
+            std::cout << "Error creating window: " << SDL_GetError()  << std::endl;
+            SDL_Quit();
+            exit(-1);
+    }
+
+       render = SDL_CreateRenderer(g_window,-1,0);
+    if (!render)
+    {
+        std::cout << "render failed, exit\n"  << std::endl;
+        SDL_Quit();
+        exit(-1);
+
+    }
+
+    if ((surface = SDL_GetWindowSurface( g_window )) == NULL)
     {
         std::cerr << "Unable to create OpenGL screen: " << SDL_GetError() << '\n';
         SDL_Quit();
         exit(-1);
     }
+
+     SDL_GLContext glContext = SDL_GL_CreateContext(g_window);
+
+            if( glContext == NULL )
+             {
+                 // Display error message
+                std::cerr << "SDL_GL_CreateContext error :" << SDL_GetError() << '\n';
+                exit(-1);
+
+                return NULL;
+             }
+            else
+             {
+                 // Initialize glew
+                // glewInit();
+             }
 
     return surface;
 }
@@ -111,7 +200,7 @@ void display()
 
     aquarium.display();
 
-    SDL_GL_SwapBuffers();
+    SDL_GL_SwapWindow(g_window);
 }
 
 void initGL()
@@ -190,7 +279,7 @@ void keyboard()
         keyPressed['t'] = false;
     }
 
-    if (keyPressed[SDLK_LEFT])
+    if (keyPressed[xKEY_LEFT])
     {
         if (!FPP)
         {
@@ -204,11 +293,11 @@ void keyboard()
         else if (activeFish > 0)
         {
             --activeFish;
-            keyPressed[SDLK_LEFT] = false;
+            keyPressed[xKEY_LEFT] = false;
         }
     }
 
-    if (keyPressed[SDLK_RIGHT])
+    if (keyPressed[xKEY_RIGHT])
     {
         if (!FPP)
         {
@@ -222,11 +311,11 @@ void keyboard()
         else
         {
             ++activeFish;
-            keyPressed[SDLK_RIGHT] = false;
+            keyPressed[xKEY_RIGHT] = false;
         }
     }
 
-    if (keyPressed[SDLK_PAGEUP])
+    if (keyPressed[xKEY_PAGEUP])
     {
         GLfloat tmpAngle = camera.vAngle;
         camera.vAngle = M_PI_2;
@@ -234,7 +323,7 @@ void keyboard()
         camera.vAngle = tmpAngle;
     }
 
-    if (keyPressed[SDLK_PAGEDOWN])
+    if (keyPressed[xKEY_PAGEDOWN])
     {
         GLfloat tmpAngle = camera.vAngle;
         camera.vAngle = -M_PI_2;
@@ -242,10 +331,10 @@ void keyboard()
         camera.vAngle = tmpAngle;
     }
 
-    if (keyPressed[SDLK_UP])
+    if (keyPressed[xKEY_UP])
         camera.move();
 
-    if (keyPressed[SDLK_DOWN])
+    if (keyPressed[xKEY_DOWN])
     {
         camera.hAngle += M_PI;
         camera.vAngle = -camera.vAngle;
@@ -278,10 +367,10 @@ void keyboard()
         keyPressed['-'] = false;
     }
 
-    if (keyPressed[SDLK_TAB])
+    if (keyPressed[xKEY_TAB])
     {
         FPP = !FPP;
-        keyPressed[SDLK_TAB] = false;
+        keyPressed[xKEY_TAB] = false;
     }
 }
 
@@ -305,7 +394,10 @@ void run()
         {
             if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP)
             {
-                keyPressed[event.key.keysym.sym] = event.key.state;
+
+                int x = xKey_remap( event.key.keysym.sym );
+                std::cerr << "keybord: " << event.key.keysym.sym <<" newmap=" << x << std::endl;
+                keyPressed[x] = event.key.state;
             }
             else if (event.type == SDL_MOUSEMOTION)
             {
@@ -317,20 +409,34 @@ void run()
             else if (event.type == SDL_MOUSEBUTTONDOWN)
             {
                 if (event.button.button == SDL_BUTTON_LEFT)
-                    SDL_WM_GrabInput(SDL_GRAB_ON);
+                    SDL_SetRelativeMouseMode(SDL_TRUE);
                 else if (event.button.button == SDL_BUTTON_RIGHT)
-                    SDL_WM_GrabInput(SDL_GRAB_OFF);
+                    SDL_SetRelativeMouseMode(SDL_FALSE);
             }
-            else if (event.type == SDL_VIDEORESIZE)
+            else if (event.type == SDL_WINDOWEVENT)
             {
-                width = event.resize.w;
-                height = event.resize.h;
+                if (event.window.event==SDL_WINDOWEVENT_RESIZED)
+                    {
+                        width = event.window.data1;
+                        height = event.window.data2;
+                     
+                        if (surface)
+                            SDL_FreeSurface(surface);
 
-                if (surface)
-                    SDL_FreeSurface(surface);
+                        surface = setVideoMode();
+                        resize(width, height);
+                    }
+                if (event.window.event==SDL_WINDOWEVENT_SIZE_CHANGED)
+                    {
+                        SDL_GetWindowSize(g_window,(int*)&width,(int*)&height);
+                     
+                        if (surface)
+                            SDL_FreeSurface(surface);
 
-                surface = setVideoMode();
-                resize(width, height);
+                        surface = setVideoMode();
+                        resize(width, height);
+                    }
+
             }
         }
 
@@ -352,12 +458,10 @@ int main(int argc, char **argv)
 
     surface = setVideoMode();
 
-    SDL_WM_SetCaption("Aquarium", NULL);
-
     initGL();
     resize(width, height);
 
-    modelLib.loadLib(DATADIR);
+	modelLib.loadLib("data");
     modelLib.loadLib(".");
 
     aquarium.init();

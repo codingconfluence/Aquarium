@@ -291,6 +291,8 @@ void Model::loadMaterialLibrary(const char *mtlfile)
             std::istringstream s(line);
             s >> command;
 
+             std::cout << "command is=" << command << '\n';
+
             if (command == "newmtl")
             {
                 s >> mtlname;
@@ -438,5 +440,10 @@ void Model::loadTexture(const std::string &texname)
                         img->pixels);
             SDL_FreeSurface(img);
         }
+        else
+            {
+            std::cout << "Loading texture " << texname << " from " << filename << 
+            " error \n";
+            }
     }
 }

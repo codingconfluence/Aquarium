@@ -28,7 +28,7 @@
 #include <vector>
 #include <GL/gl.h>
 #include <GL/glext.h>
-#include <SDL/SDL_image.h>
+#include <SDL2/SDL_image.h>
 
 class Model
 {

@@ -18,7 +18,11 @@
 //      MA 02110-1301, USA.
 
 
+
+#include "GL/glew.h"
 #include "aquarium.hpp"
+#include "GL/glut.h"
+#include "GL/gl.h"
 
 Aquarium::Aquarium(GLuint width, GLuint height, GLuint depth)
     : activeFish(-1)
@@ -62,9 +66,10 @@ void Aquarium::init()
 
     glGenTextures(3, texture);
 
-    textureFromImg(texture[0], DATADIR "/wall.jpg");
-    textureFromImg(texture[1], DATADIR "/sand.jpg");
-    textureFromImg(texture[2], DATADIR "/water.jpg");
+    textureFromImg(texture[0], "data/wall.jpg");
+    textureFromImg(texture[1], "data/sand.jpg");
+    textureFromImg(texture[2], "data/water.jpg");
+
 }
 
 void Aquarium::display() const
@@ -279,10 +284,19 @@ void Aquarium::initShader()
 {
     std::string vsSource, fsSource;
 
-    loadShader(DATADIR "/shaders/fish.vert", vsSource);
-    loadShader(DATADIR "/shaders/fish.frag", fsSource);
-
+    loadShader("data/shaders/fish.vert", vsSource);
+    loadShader("data/shaders/fish.frag", fsSource);
     const char *shaders[] = {vsSource.c_str(), fsSource.c_str()};
+
+    //GLenum err = glewInit();
+    //if(err != GLEW_OK) {
+    if(glewInit()) 
+        {
+
+  std::cerr << "glewInit error" << '\n';
+  exit(-1);
+
+     }
 
     GLuint vertexShader   = glCreateShader(GL_VERTEX_SHADER),
            fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
